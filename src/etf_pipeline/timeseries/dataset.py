@@ -142,6 +142,7 @@ def prepare_ts_training_data(
     return_type: str = "log",
     include_covariates: bool = True,
     min_history_bars: int = 500,
+    lookback_years: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Prepare time series training data ending strictly before a cutoff.
@@ -153,6 +154,7 @@ def prepare_ts_training_data(
         return_type: Type of return calculation.
         include_covariates: Whether to add time covariates.
         min_history_bars: Minimum bars per symbol required.
+        lookback_years: Maximum years of history to use (None = all available).
 
     Returns:
         TimeSeriesDataFrame-compatible DataFrame for training.
@@ -170,6 +172,12 @@ def prepare_ts_training_data(
 
     # Filter to training window
     ts_df = ts_df[ts_df["timestamp"] < train_end_timestamp]
+
+    # Apply lookback limit if specified
+    if lookback_years is not None:
+        lookback_days = int(lookback_years * 365.25)
+        lookback_start = train_end_timestamp - pd.Timedelta(days=lookback_days)
+        ts_df = ts_df[ts_df["timestamp"] >= lookback_start]
 
     # Validate minimum history
     valid_symbols = []
