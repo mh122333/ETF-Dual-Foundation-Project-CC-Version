@@ -120,6 +120,10 @@ def create_timeseries_dataframe(
         result["timestamp"] = result.index
         result[target_col] = returns
 
+        # Convert timestamp to timezone-naive (required by AutoGluon)
+        if result["timestamp"].dt.tz is not None:
+            result["timestamp"] = result["timestamp"].dt.tz_convert("UTC").dt.tz_localize(None)
+
         # Add covariates
         if include_covariates:
             result = add_time_covariates(result)
@@ -152,6 +156,10 @@ def create_timeseries_dataframe(
         result["item_id"] = symbol
         result["timestamp"] = result.index
         result[target_col] = returns
+
+        # Convert timestamp to timezone-naive (required by AutoGluon)
+        if result["timestamp"].dt.tz is not None:
+            result["timestamp"] = result["timestamp"].dt.tz_convert("UTC").dt.tz_localize(None)
 
         # Add covariates
         if include_covariates:
@@ -192,6 +200,7 @@ def prepare_ts_training_data(
 
     Returns:
         TimeSeriesDataFrame-compatible DataFrame for training.
+        Timestamps are converted to timezone-naive for AutoGluon compatibility.
     """
     # Create full TS dataframe
     ts_df = create_timeseries_dataframe(
@@ -204,13 +213,24 @@ def prepare_ts_training_data(
     if ts_df.empty:
         return ts_df
 
+    # Convert timestamps to timezone-naive for consistent comparison
+    # AutoGluon TimeSeriesDataFrame requires timezone-naive datetime64
+    if ts_df["timestamp"].dt.tz is not None:
+        ts_df["timestamp"] = ts_df["timestamp"].dt.tz_convert("UTC").dt.tz_localize(None)
+
+    # Convert train_end_timestamp to timezone-naive for comparison
+    if hasattr(train_end_timestamp, 'tzinfo') and train_end_timestamp.tzinfo is not None:
+        train_end_naive = pd.Timestamp(train_end_timestamp).tz_convert("UTC").tz_localize(None)
+    else:
+        train_end_naive = pd.Timestamp(train_end_timestamp)
+
     # Filter to training window
-    ts_df = ts_df[ts_df["timestamp"] < train_end_timestamp]
+    ts_df = ts_df[ts_df["timestamp"] < train_end_naive]
 
     # Apply lookback limit if specified
     if lookback_years is not None:
         lookback_days = int(lookback_years * 365.25)
-        lookback_start = train_end_timestamp - pd.Timedelta(days=lookback_days)
+        lookback_start = train_end_naive - pd.Timedelta(days=lookback_days)
         ts_df = ts_df[ts_df["timestamp"] >= lookback_start]
 
     # Validate minimum history
