@@ -1,0 +1,53 @@
+# Experiment 5 Ablation Configuration
+# Run different ablations to compare feature sets and model configurations
+
+# Default settings
+defaults:
+  symbols: ["SPY"]
+  tabular_max_rows: 6500
+  vertical_barrier_bars: 26
+  embargo_bars: 26
+  tune_window: 260
+  test_window: 520
+  time_limit_sec: 1200
+  tabular_presets: "best_quality"
+  ts_presets: "chronos_ensemble"
+  cross_learning: false
+  random_seed: 42
+
+# Ablation runs
+ablations:
+  # Feature set size ablations
+  - name: "small_features"
+    feature_set: "small"
+    description: "Minimal forecast features (mu, unc at 4 horizons)"
+
+  - name: "medium_features"
+    feature_set: "medium"
+    description: "Medium forecast features (adds skew, more horizons)"
+
+  - name: "large_features"
+    feature_set: "large"
+    description: "Full forecast features (all metrics, all horizons)"
+
+  # Data window ablations
+  - name: "small_window"
+    feature_set: "small"
+    tabular_max_rows: 5000
+    description: "Smaller training window (5000 rows)"
+
+  - name: "large_window"
+    feature_set: "small"
+    tabular_max_rows: 9000
+    description: "Larger training window (9000 rows)"
+
+  # Cross-learning ablation (optional)
+  - name: "cross_learning_on"
+    feature_set: "small"
+    cross_learning: true
+    description: "Enable cross-learning in Chronos"
+
+# Quick ablation subset (for faster testing)
+quick_ablations:
+  - "small_features"
+  - "medium_features"
