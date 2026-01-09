@@ -83,8 +83,10 @@ def create_timeseries_dataframe(
     Create a TimeSeriesDataFrame-compatible DataFrame from bars.
 
     Args:
-        bars_df: DataFrame with MultiIndex (symbol, timestamp) or symbol column.
-        symbols: List of symbols to include.
+        bars_df: DataFrame with MultiIndex (symbol, timestamp), symbol column,
+                 or single-symbol DataFrame (DatetimeIndex only).
+        symbols: List of symbols to include. If bars_df is single-symbol,
+                 the first symbol in this list is used as item_id.
         target_col: Name for the target column.
         return_type: Type of return calculation.
         price_col: Price column to use.
@@ -96,9 +98,41 @@ def create_timeseries_dataframe(
     """
     results = []
 
+    # Check if bars_df is already a single-symbol DataFrame
+    is_multi_index = isinstance(bars_df.index, pd.MultiIndex)
+    has_symbol_col = "symbol" in bars_df.columns
+
+    # If it's a simple DataFrame with DatetimeIndex (single symbol already extracted)
+    if not is_multi_index and not has_symbol_col:
+        # Use the first symbol in the list as the item_id
+        symbol = symbols[0] if symbols else "UNKNOWN"
+        symbol_df = bars_df.copy()
+
+        # Ensure it's sorted by time
+        symbol_df = symbol_df.sort_index()
+
+        # Compute returns
+        returns = build_returns_series(symbol_df, return_type, price_col)
+
+        # Build result DataFrame
+        result = pd.DataFrame(index=symbol_df.index)
+        result["item_id"] = symbol
+        result["timestamp"] = result.index
+        result[target_col] = returns
+
+        # Add covariates
+        if include_covariates:
+            result = add_time_covariates(result)
+
+        # Drop first row (NaN return)
+        result = result.dropna(subset=[target_col])
+
+        return result.reset_index(drop=True)
+
+    # Handle multi-symbol case
     for symbol in symbols:
         # Extract symbol data
-        if isinstance(bars_df.index, pd.MultiIndex):
+        if is_multi_index:
             if symbol not in bars_df.index.get_level_values("symbol"):
                 continue
             symbol_df = bars_df.loc[symbol].copy()
