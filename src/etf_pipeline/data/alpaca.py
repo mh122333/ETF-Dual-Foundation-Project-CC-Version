@@ -8,7 +8,7 @@ import pandas as pd
 import pytz
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 
 from ..utils.paths import get_bars_cache_path, ensure_dirs
 
@@ -40,16 +40,17 @@ def fetch_bars(
         DataFrame with columns: open, high, low, close, volume, trade_count, vwap
         Index is a DatetimeIndex (timestamp).
     """
+    # Create 30-minute timeframe
+    timeframe_30min = TimeFrame(30, TimeFrameUnit.Minute)
+
     request = StockBarsRequest(
         symbol_or_symbols=symbol,
-        timeframe=TimeFrame.Minute,
+        timeframe=timeframe_30min,
         start=start,
         end=end,
         adjustment="split",
         feed=feed,
     )
-    # Override to 30-minute bars
-    request.timeframe = TimeFrame(30, "Min")
 
     bars = client.get_stock_bars(request)
     df = bars.df
@@ -126,13 +127,23 @@ def load_or_fetch_bars(
 
     # Fetch from Alpaca with fallback
     df = pd.DataFrame()
+    last_error = None
     for feed in ["iex", "sip"]:
         try:
+            print(f"  Fetching {symbol} with feed={feed}...")
             df = fetch_bars(client, symbol, start, end, feed=feed)
             if not df.empty:
+                print(f"  {symbol}: fetched {len(df)} bars")
                 break
-        except Exception:
+            else:
+                print(f"  {symbol}: no data from {feed} feed")
+        except Exception as e:
+            last_error = e
+            print(f"  {symbol}: error with {feed} feed: {e}")
             continue
+
+    if df.empty and last_error:
+        print(f"  WARNING: Failed to fetch {symbol}: {last_error}")
 
     if df.empty:
         return df
