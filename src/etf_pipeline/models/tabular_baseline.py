@@ -140,7 +140,9 @@ def train_tabular_baseline(
     tune_data = X_tune.copy()
     tune_data[label_col] = y_tune
 
-    # Set random seed
+    # Set random seed for reproducibility (numpy/python level)
+    import random
+    random.seed(random_seed)
     np.random.seed(random_seed)
 
     # Configure predictor
@@ -152,13 +154,12 @@ def train_tabular_baseline(
         verbosity=verbosity,
     )
 
-    # Train
+    # Train (random_seed not supported in newer AutoGluon versions)
     predictor.fit(
         train_data=train_data,
         tuning_data=tune_data,
         time_limit=time_limit,
         presets=presets,
-        random_seed=random_seed,
     )
 
     return predictor
